@@ -207,3 +207,89 @@ def test_multiple_experiments_isolated(tracker):
 def test_unknown_run_id_raises(tracker):
     with pytest.raises(KeyError):
         tracker.get_run("nonexistent_run_id_xyz")
+
+
+# ---------------------------------------------------------------------------
+# Tagging tests  (closes #4)
+# ---------------------------------------------------------------------------
+
+class TestTagging:
+    """Tests for tag_run and get_runs_by_tag."""
+
+    def test_tag_run_single_tag(self, tracker):
+        """A run can be tagged and the tag is retrievable."""
+        run_id = tracker.start_run("tagging_exp")
+        tracker.tag_run(run_id, ["baseline"])
+        run = tracker.get_run(run_id)
+        assert "baseline" in run["tags"]
+
+    def test_tag_run_multiple_tags(self, tracker):
+        """Multiple tags can be attached at once."""
+        run_id = tracker.start_run("tagging_exp")
+        tracker.tag_run(run_id, ["baseline", "v2", "production"])
+        run = tracker.get_run(run_id)
+        assert set(run["tags"]) == {"baseline", "v2", "production"}
+
+    def test_tag_run_idempotent(self, tracker):
+        """Tagging the same tag twice must not duplicate it."""
+        run_id = tracker.start_run("tagging_exp")
+        tracker.tag_run(run_id, ["baseline"])
+        tracker.tag_run(run_id, ["baseline"])
+        run = tracker.get_run(run_id)
+        assert run["tags"].count("baseline") == 1
+
+    def test_tag_run_accumulates_across_calls(self, tracker):
+        """Separate tag_run calls accumulate tags rather than replacing them."""
+        run_id = tracker.start_run("tagging_exp")
+        tracker.tag_run(run_id, ["baseline"])
+        tracker.tag_run(run_id, ["ablation"])
+        run = tracker.get_run(run_id)
+        assert "baseline" in run["tags"]
+        assert "ablation" in run["tags"]
+
+    def test_get_runs_by_tag_returns_matching(self, tracker):
+        """get_runs_by_tag returns only runs that carry the given tag."""
+        exp = "filter_exp"
+        r1 = tracker.start_run(exp)
+        r2 = tracker.start_run(exp)
+        r3 = tracker.start_run(exp)
+        tracker.tag_run(r1, ["baseline"])
+        tracker.tag_run(r2, ["baseline", "ablation"])
+        tracker.tag_run(r3, ["ablation"])
+
+        baseline_runs = tracker.get_runs_by_tag(exp, "baseline")
+        assert len(baseline_runs) == 2
+        ids = {r["run_id"] for r in baseline_runs}
+        assert r1 in ids and r2 in ids
+
+    def test_get_runs_by_tag_empty_when_no_match(self, tracker):
+        """Returns an empty list when no runs carry the requested tag."""
+        exp = "no_tag_exp"
+        run_id = tracker.start_run(exp)
+        tracker.tag_run(run_id, ["v1"])
+        result = tracker.get_runs_by_tag(exp, "nonexistent_tag")
+        assert result == []
+
+    def test_tags_persist_across_instances(self, tmp_path):
+        """Tags must survive ExperimentTracker re-instantiation (JSON roundtrip)."""
+        path = tmp_path / "tagged_store"
+        t1 = ExperimentTracker(path)
+        run_id = t1.start_run("persist_exp")
+        t1.tag_run(run_id, ["production", "v3"])
+
+        t2 = ExperimentTracker(path)
+        run = t2.get_run(run_id)
+        assert "production" in run["tags"]
+        assert "v3" in run["tags"]
+
+    def test_get_runs_by_tag_respects_experiment_scope(self, tracker):
+        """Tags from one experiment must not bleed into another."""
+        r1 = tracker.start_run("expA")
+        r2 = tracker.start_run("expB")
+        tracker.tag_run(r1, ["shared_tag"])
+        tracker.tag_run(r2, ["shared_tag"])
+
+        runs_a = tracker.get_runs_by_tag("expA", "shared_tag")
+        runs_b = tracker.get_runs_by_tag("expB", "shared_tag")
+        assert len(runs_a) == 1 and runs_a[0]["run_id"] == r1
+        assert len(runs_b) == 1 and runs_b[0]["run_id"] == r2

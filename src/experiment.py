@@ -209,6 +209,61 @@ class ExperimentTracker:
         """Return all runs for *experiment_name* as a list."""
         return self._list_runs(experiment_name)
 
+
+    # ------------------------------------------------------------------
+    # Tagging  (closes #4)
+    # ------------------------------------------------------------------
+
+    def tag_run(self, run_id: str, tags: List[str]) -> None:
+        """
+        Attach one or more string tags to *run_id*. Idempotent.
+
+        Tags are stored as a list under the ``"tags"`` key in the run dict
+        and persisted to the JSON backing store immediately.
+
+        Parameters
+        ----------
+        run_id : str
+            Target run identifier.
+        tags : list[str]
+            One or more tag strings to attach (e.g. ``["baseline", "v2"]``).
+
+        Raises
+        ------
+        KeyError
+            If *run_id* does not exist.
+        """
+        run = self._get_run(run_id)
+        existing: List[str] = run.setdefault("tags", [])
+        for tag in tags:
+            if tag not in existing:
+                existing.append(tag)
+        self._save()
+
+    def get_runs_by_tag(self, experiment_name: str, tag: str) -> List[Dict[str, Any]]:
+        """
+        Return all runs under *experiment_name* that carry *tag*.
+
+        Parameters
+        ----------
+        experiment_name : str
+            The experiment to search within.
+        tag : str
+            The tag to filter by.
+
+        Returns
+        -------
+        list[dict]
+            Matching run dictionaries (may be empty if no runs carry *tag*).
+
+        Raises
+        ------
+        ValueError
+            If *experiment_name* does not exist.
+        """
+        runs = self._list_runs(experiment_name)
+        return [r for r in runs if tag in r.get("tags", [])]
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
