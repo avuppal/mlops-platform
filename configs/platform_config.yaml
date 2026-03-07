@@ -1,0 +1,65 @@
+# MLOps Platform Configuration
+# ============================================================
+# Central config for thresholds, paths, and feature flags.
+# All values can be overridden via environment variables or
+# a local override file (platform_config.local.yaml).
+
+# ------------------------------------------------------------------
+# Storage
+# ------------------------------------------------------------------
+storage:
+  experiments_path: "./mlops_data/experiments"
+  registry_path: "./mlops_data/registry"
+
+# ------------------------------------------------------------------
+# Experiment Tracking
+# ------------------------------------------------------------------
+experiment_tracking:
+  default_metric: "accuracy"
+  default_metric_mode: "max"   # "max" | "min"
+
+# ------------------------------------------------------------------
+# Model Registry
+# ------------------------------------------------------------------
+registry:
+  # Promotion requires explicit API call — no auto-promote on register
+  auto_promote_to_staging: false
+  # Minimum number of registered versions before rollback is allowed
+  min_versions_for_rollback: 2
+
+# ------------------------------------------------------------------
+# A/B Testing
+# ------------------------------------------------------------------
+ab_testing:
+  default_traffic_split: 0.50        # 50/50 by default
+  significance_alpha: 0.05           # α for Welch t-test
+  min_samples_per_arm: 100           # minimum before declare_winner is called
+  lift_threshold_pct: 2.0            # minimum lift (%) to consider treatment a winner
+
+# ------------------------------------------------------------------
+# Drift Detection
+# ------------------------------------------------------------------
+drift_detection:
+  psi_threshold: 0.25                # PSI ≥ 0.25 → significant drift → retrain
+  psi_moderate_threshold: 0.10       # 0.10 ≤ PSI < 0.25 → moderate drift → alert
+  ks_threshold: 0.05                 # KS p-value < 0.05 → reject null (no drift)
+  psi_bins: 10                       # histogram bins for PSI calculation
+  check_interval_minutes: 60         # how often the monitor runs in production
+
+# ------------------------------------------------------------------
+# Retraining Pipeline
+# ------------------------------------------------------------------
+pipeline:
+  metric: "accuracy"
+  metric_mode: "max"
+  retrain_metric_threshold: 0.80     # retrain if accuracy < 0.80
+  promote_threshold_pct: 0.02        # require ≥2% improvement to promote
+  max_concurrent_runs: 1             # serialise pipeline runs to avoid resource spikes
+  experiment_name_prefix: "retrain"
+
+# ------------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------------
+logging:
+  level: "INFO"                      # DEBUG | INFO | WARNING | ERROR
+  format: "%(asctime)s [%(levelname)s] %(name)s — %(message)s"

@@ -1,0 +1,12 @@
+# Runtime dependencies
+# Pure Python stdlib is sufficient for all core functionality.
+# numpy is optional but accelerates numerical operations.
+numpy>=1.21.0
+
+# Optional: scipy provides a faster KS test implementation.
+# If not installed, the platform falls back to a pure-Python implementation.
+# scipy>=1.7.0
+
+# Test dependencies (not needed at runtime)
+pytest>=7.0.0
+pytest-cov>=4.0.0
