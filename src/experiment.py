@@ -135,26 +135,29 @@ class ExperimentTracker:
     # Query / analysis
     # ------------------------------------------------------------------
 
-    def get_best_run(
+    def get_best_runs(
         self,
         experiment_name: str,
         metric: str,
+        n: int = 1,
         mode: str = "max",
-    ) -> Dict[str, Any]:
+    ) -> List[Dict[str, Any]]:
         """
-        Return the run with the best *final* value for *metric*.
+        Return the top *n* runs with the best *final* value for *metric*.
 
         Parameters
         ----------
         metric : str
             Metric key to rank runs by.
+        n : int, default=1
+            Number of top runs to return.
         mode : str
             ``"max"`` (higher is better) or ``"min"`` (lower is better).
 
         Returns
         -------
-        dict
-            Full run dictionary of the winner.
+        list[dict]
+            A list of the top *n* run dictionaries, sorted by performance.
 
         Raises
         ------
@@ -173,8 +176,11 @@ class ExperimentTracker:
                 f"No runs in '{experiment_name}' recorded metric '{metric}'"
             )
 
-        key_fn = lambda r: r["metrics"][metric][-1]["value"]  # noqa: E731
-        return max(candidates, key=key_fn) if mode == "max" else min(candidates, key=key_fn)
+        key_fn = lambda r: r["metrics"][metric][-1]["value"]
+        reverse = mode == "max"
+        
+        sorted_runs = sorted(candidates, key=key_fn, reverse=reverse)
+        return sorted_runs[:n]
 
     def compare_runs(self, run_ids: List[str]) -> Dict[str, Dict[str, Any]]:
         """

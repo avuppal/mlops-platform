@@ -113,7 +113,7 @@ def test_persistence_across_instances(tmp_path):
 # Best run
 # ------------------------------------------------------------------
 
-def test_get_best_run_max(tracker):
+def test_get_best_runs_max(tracker):
     exp = "comparison"
     ids = []
     for acc in [0.80, 0.90, 0.85]:
@@ -122,34 +122,57 @@ def test_get_best_run_max(tracker):
         tracker.end_run(rid)
         ids.append(rid)
 
-    best = tracker.get_best_run(exp, "accuracy", mode="max")
+    best = tracker.get_best_runs(exp, "accuracy", mode="max")[0]
     assert best["metrics"]["accuracy"][-1]["value"] == 0.90
 
 
-def test_get_best_run_min(tracker):
+def test_get_best_runs_min(tracker):
     exp = "loss_exp"
     for loss in [0.5, 0.2, 0.35]:
         rid = tracker.start_run(exp)
         tracker.log_metric(rid, "loss", loss)
         tracker.end_run(rid)
 
-    best = tracker.get_best_run(exp, "loss", mode="min")
+    best = tracker.get_best_runs(exp, "loss", mode="min")[0]
     assert best["metrics"]["loss"][-1]["value"] == 0.2
 
 
-def test_get_best_run_raises_on_unknown_metric(tracker):
+def test_get_best_runs_n_returns_correct_number(tracker):
+    exp = "top_n"
+    for i in range(5):
+        rid = tracker.start_run(exp)
+        tracker.log_metric(rid, "score", i)
+        tracker.end_run(rid)
+    
+    top_3 = tracker.get_best_runs(exp, "score", n=3, mode="max")
+    assert len(top_3) == 3
+
+
+def test_get_best_runs_n_returns_sorted_order(tracker):
+    exp = "top_n_sorted"
+    scores = [10, 50, 20, 40, 30]
+    for score in scores:
+        rid = tracker.start_run(exp)
+        tracker.log_metric(rid, "score", score)
+        tracker.end_run(rid)
+
+    top_3 = tracker.get_best_runs(exp, "score", n=3, mode="max")
+    assert [r["metrics"]["score"][-1]["value"] for r in top_3] == [50, 40, 30]
+
+
+def test_get_best_runs_raises_on_unknown_metric(tracker):
     rid = tracker.start_run("e")
     tracker.log_metric(rid, "accuracy", 0.9)
     tracker.end_run(rid)
     with pytest.raises(ValueError, match="No runs"):
-        tracker.get_best_run("e", "nonexistent_metric")
+        tracker.get_best_runs("e", "nonexistent_metric")
 
 
-def test_get_best_run_invalid_mode(tracker):
+def test_get_best_runs_invalid_mode(tracker):
     rid = tracker.start_run("e")
     tracker.log_metric(rid, "accuracy", 0.9)
     with pytest.raises(ValueError, match="mode must be"):
-        tracker.get_best_run("e", "accuracy", mode="median")
+        tracker.get_best_runs("e", "accuracy", mode="median")
 
 
 # ------------------------------------------------------------------
